@@ -54,6 +54,8 @@ typedef struct {
 #define SL_BT_BLUETOOTH_PRIORITIES_DEFAULT { 191, 143, 175, 127, 135, 0, 55, 15, 16, 16, 0, 4, 4, 15, 5, 20, 10 }
 
 #define SL_BT_BLUETOOTH_PA_AUTOMODE 0xff
+#define SL_BT_BLUETOOTH_HIGHEST_PA  0xfe
+#define SL_BT_BLUETOOTH_RAIL_UTIL_PA  0xfd
 
 #include "sl_common.h"
 SL_PACK_START(1)

@@ -32,19 +32,25 @@
 #include "sl_status.h"
 #include <stdint.h>
 
-void sl_bt_controller_init(void);
+sl_status_t sl_bt_controller_init(void);
 
 void sl_bt_controller_deinit(void);
 
 void sl_btctrl_init(void);
 
 /**
- * Allocate memory buffers for controller
+ * Allocate controller memory
  *
- * @param memsize size of memory to allocate
- * @returns number of memory buffers allocated
+ * @returns Number of memory buffers allocated
  */
-uint32_t sl_btctrl_init_mem(uint32_t memsize);
+uint32_t sl_btctrl_init_mem(void);
+
+/**
+ * Set the amount of controller memory to allocate when sl_btctrl_init_mem() is called
+ *
+ * @param buffer_size Amount of memory to allocate
+ */
+void sl_btctrl_set_buffer_size(uint32_t buffer_size);
 
 /**
  *  Configures how many maximum sized ACL data packets
@@ -230,6 +236,19 @@ struct sl_btctrl_cs_config {
   uint8_t procedures;
 };
 
+/**
+ * Link Layer init
+ */
+struct BTLE_LL_Config{
+  uint32_t buffer_memory; // Amount of controller buffer memory to allocate
+  uint16_t sleepClockAccuracy;
+  uint32_t flags;
+  const uint8_t * priorities;
+  int16_t txGain;
+  int16_t rxGain;
+  uint8_t paMode;
+};
+
 sl_status_t sl_btctrl_init_cs(const struct sl_btctrl_cs_config *config);
 
 /**
@@ -307,5 +326,27 @@ void sl_btctrl_init_past_receiver(void);
  * all the transmitted packets, then it will send the Number Of Completed Packets HCI event to the host.
  */
 void sl_btctrl_configure_completed_packets_reporting(uint8_t packets, uint8_t events);
+
+/**
+ * @brief Configure the power control configuration. This configuration is used when the power control
+ * feature is present.
+ * @param[in] powerCtrlCfg The power control configuration.
+ * @param[in] minPower The minimum usable power level.
+ * @param[in] maxPower The maximum usable power level.
+ */
+sl_status_t sl_btctrl_init_power_control(const uint8_t *powerCtrlCfg,
+                                         int16_t minPower,
+                                         int16_t maxPower);
+
+sl_status_t sl_bt_init_app_controlled_tx_power(void);
+
+/**
+ * Initial sniff, open to customer
+ */
+sl_status_t sl_btctrl_init_sniff(uint8_t num);
+/**
+ * Deinitial sniff, open to customer
+ */
+void sl_btctrl_deinit_sniff(void);
 
 #endif
