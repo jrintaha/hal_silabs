@@ -6,7 +6,7 @@ from import_simplicity_sdk import paths
 
 lib_paths = [
   "platform/radio/rail_lib/autogen/librail_release/librail_*_gcc_release.a",
-  "protocol/bluetooth/bgstack/ll/lib/libbluetooth_controller_*_gcc_release.a",
+  "protocol/bluetooth/bgstack/ll/build/gcc/**/release/liblinklayer.a",
   "protocol/bluetooth/bgcommon/lib/build/gcc/**/bgcommon/release/libbgcommon.a",
 ]
 
