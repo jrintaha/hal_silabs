@@ -32,25 +32,29 @@
 #include "sl_status.h"
 #include <stdint.h>
 
-sl_status_t sl_bt_controller_init(void);
+/**
+ * Link Layer init
+ */
+struct sl_btctrl_config{
+  uint32_t buffer_memory; // Amount of controller buffer memory to allocate
+  uint16_t sleepClockAccuracy;
+  uint32_t flags;
+  const uint8_t * priorities;
+  int16_t txGain;
+  int16_t rxGain;
+  uint8_t paMode;
+};
 
-void sl_bt_controller_deinit(void);
-
-void sl_btctrl_init(void);
+sl_status_t sl_btctrl_init(void);
+sl_status_t sl_btctrl_init_internal(struct sl_btctrl_config *config);
+void sl_btctrl_deinit(void);
 
 /**
  * Allocate controller memory
  *
  * @returns Number of memory buffers allocated
  */
-uint32_t sl_btctrl_init_mem(void);
-
-/**
- * Set the amount of controller memory to allocate when sl_btctrl_init_mem() is called
- *
- * @param buffer_size Amount of memory to allocate
- */
-void sl_btctrl_set_buffer_size(uint32_t buffer_size);
+uint32_t sl_btctrl_init_mem(uint32_t memsize);
 
 /**
  *  Configures how many maximum sized ACL data packets
@@ -65,7 +69,7 @@ void sli_btctrl_deinit_mem(void);
 
 void sli_btctrl_set_interrupt_priorities();
 
-sl_status_t sl_btctrl_init_ll(void);
+sl_status_t sl_btctrl_init_ll(struct sl_btctrl_config *config);
 
 void sli_btctrl_set_address(uint8_t *address);
 
@@ -236,19 +240,6 @@ struct sl_btctrl_cs_config {
   uint8_t procedures;
 };
 
-/**
- * Link Layer init
- */
-struct BTLE_LL_Config{
-  uint32_t buffer_memory; // Amount of controller buffer memory to allocate
-  uint16_t sleepClockAccuracy;
-  uint32_t flags;
-  const uint8_t * priorities;
-  int16_t txGain;
-  int16_t rxGain;
-  uint8_t paMode;
-};
-
 sl_status_t sl_btctrl_init_cs(const struct sl_btctrl_cs_config *config);
 
 /**
@@ -348,5 +339,9 @@ sl_status_t sl_btctrl_init_sniff(uint8_t num);
  * Deinitial sniff, open to customer
  */
 void sl_btctrl_deinit_sniff(void);
+
+void sl_btctrl_init_config(struct sl_btctrl_config *config);
+
+void sli_btctrl_set_min_max_tx_power(int16_t min_power, int16_t max_power);
 
 #endif
