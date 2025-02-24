@@ -1,23 +1,36 @@
 /***************************************************************************//**
  * @file
- * @brief Functions used by the BGAPI protocol to output BGAPI trace over RTT
+ * @brief Bluetooth initialization and event processing
  *******************************************************************************
  * # License
- * <b>Copyright 2023 Silicon Laboratories Inc. www.silabs.com</b>
+ * <b>Copyright 2025 Silicon Laboratories Inc. www.silabs.com</b>
  *******************************************************************************
  *
- * The licensor of this software is Silicon Laboratories Inc.  Your use of this
- * software is governed by the terms of Silicon Labs Master Software License
- * Agreement (MSLA) available at
- * www.silabs.com/about-us/legal/master-software-license-agreement.  This
- * software is distributed to you in Source Code format and is governed by the
- * sections of the MSLA applicable to Source Code.
+ * SPDX-License-Identifier: Zlib
+ *
+ * The licensor of this software is Silicon Laboratories Inc.
+ *
+ * This software is provided 'as-is', without any express or implied warranty.
+ * In no event will the authors be held liable for any damages arising from the
+ * use of this software.
+ *
+ * Permission is granted to anyone to use this software for any purpose,
+ * including commercial applications, and to alter it and redistribute it
+ * freely, subject to the following restrictions:
+ *
+ * 1. The origin of this software must not be misrepresented; you must not
+ *    claim that you wrote the original software. If you use this software in a
+ *    product, an acknowledgment in the product documentation would be
+ *    appreciated but is not required.
+ * 2. Altered source versions must be plainly marked as such, and must not be
+ *    misrepresented as being the original software.
+ * 3. This notice may not be removed or altered from any source distribution.
  *
  ******************************************************************************/
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <sl_common.h>
-#include "sl_rail_util_pa_config.h"
 #include "sl_btctrl_linklayer.h"
 #include "sl_btctrl_config.h"
 #include "sl_bt_ll_config.h"
@@ -66,7 +79,7 @@
 #include "coexistence-ble.h"
 #endif
 
-#if !defined(SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT)
+#if defined(SL_CATALOG_BLUETOOTH_PRESENT)
 #include "sl_bluetooth.h"
 #endif
 
@@ -116,24 +129,29 @@
 #define SL_BT_COMPONENT_CONNECTIONS 0
 #endif
 
-extern void test_protocol_init();
-
-SL_WEAK void sl_bluetooth_controller_debug_init()
+SL_WEAK void sl_btctrl_debug_init()
 {
 }
 
-sl_status_t sl_bt_controller_init(void)
+sl_status_t sl_btctrl_init_internal(struct sl_btctrl_config *config)
 {
   sl_status_t status = SL_STATUS_OK;
-#if defined(SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT)
+
   if (sl_btctrl_is_initialized() == true) {
     return SL_STATUS_OK;
-  } else {
-    // Init the BTLE LL struct for an RCP app
-    sl_btctrl_init_ll_config(SL_BT_CONTROLLER_BUFFER_MEMORY);
-    sl_btctrl_configure_le_buffer_size(SL_BT_CONTROLLER_LE_BUFFER_SIZE_MAX);
   }
-#endif // SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT
+
+#if defined(SL_CATALOG_BLUETOOTH_RCP_PRESENT)
+  sl_btctrl_configure_le_buffer_size(SL_BT_CONTROLLER_LE_BUFFER_SIZE_MAX);
+#endif // SL_CATALOG_BLUETOOTH_RCP_PRESENT
+
+  sl_btctrl_init_mem(config->buffer_memory);
+  sl_btctrl_init_ll(config);
+  sl_btctrl_debug_init();
+
+#if defined(SL_CATALOG_BLUETOOTH_RCP_PRESENT) && !defined(SL_CATALOG_KERNEL_PRESENT)
+  sli_btctrl_events_init();
+#endif // SL_CATALOG_BLUETOOTH_RCP_PRESENT && !SL_CATALOG_KERNEL_PRESENT
 
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_PHY_SUPPORT_CONFIG_PRESENT)
 #if SL_BT_CONTROLLER_2M_PHY_SUPPORT == 0
@@ -143,14 +161,6 @@ sl_status_t sl_bt_controller_init(void)
   sl_btctrl_disable_coded_phy();
 #endif
 #endif // SL_CATALOG_BLUETOOTH_FEATURE_PHY_SUPPORT_CONFIG_PRESENT
-
-#if defined(SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT) && !defined(SL_CATALOG_KERNEL_PRESENT)
-  sli_btctrl_events_init();
-#endif // SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT && !SL_CATALOG_KERNEL_PRESENT
-
-  sl_btctrl_init_mem();
-  sl_btctrl_init_ll();
-  sl_bluetooth_controller_debug_init();
 
 #if defined(SL_CATALOG_RAIL_UTIL_COEX_PRESENT)
   sl_bt_init_coex_hal();
@@ -174,6 +184,10 @@ sl_status_t sl_bt_controller_init(void)
 
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_SCANNER_PRESENT)
   sl_btctrl_init_scan();
+#endif
+
+#if defined(SL_CATALOG_BLUETOOTH_FEATURE_EXTENDED_SCANNER_PRESENT)
+  sl_btctrl_init_scan_ext();
 #endif
 
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_EVEN_SCHEDULING_PRESENT)
@@ -204,6 +218,12 @@ sl_status_t sl_bt_controller_init(void)
 
 #endif
 
+// Initialize the min and max tx power values if the connection feature is present.
+#if defined(SL_CATALOG_BLUETOOTH_FEATURE_CONNECTION_PRESENT)
+  sli_btctrl_set_min_max_tx_power(SL_BT_USE_MIN_POWER_LEVEL_SUPPORTED_BY_RADIO,
+                                  SL_BT_USE_MAX_POWER_LEVEL_SUPPORTED_BY_RADIO);
+#endif
+
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_POWER_CONTROL_PRESENT)
   const sl_bt_ll_power_control_config_t power_control_config = {
     .activate_power_control = SL_BT_ACTIVATE_POWER_CONTROL,
@@ -227,10 +247,6 @@ sl_status_t sl_bt_controller_init(void)
 
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_USER_POWER_CONTROL_PRESENT)
   sl_bt_init_app_controlled_tx_power();
-#endif
-
-#if defined(SL_CATALOG_BLUETOOTH_FEATURE_SCANNER_PRESENT)
-  sl_btctrl_init_scan_ext();
 #endif
 
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_PERIODIC_ADVERTISER_PRESENT)
@@ -331,6 +347,9 @@ sl_status_t sl_bt_controller_init(void)
   sl_btctrl_init_cs(&cs_config);
 #endif // SL_CATALOG_BLUETOOTH_FEATURE_CS_PRESENT or SL_CATALOG_BLUETOOTH_FEATURE_CS_TEST_PRESENT
 
+  // In addition to the user advertisers and connections, the number of internal
+  // advertisers and connections also needs to be accounted for (i.e. SL_BT_COMPONENT_ADVERTISERS
+  // and SL_BT_COMPONENT_CONNECTIONS).
   sl_btctrl_init_basic(SL_BT_CONFIG_MAX_CONNECTIONS + SL_BT_COMPONENT_CONNECTIONS,
                        SL_BT_CONFIG_USER_ADVERTISERS + SL_BT_COMPONENT_ADVERTISERS,
                        SL_BT_CONFIG_ACCEPT_LIST_SIZE);
@@ -360,18 +379,6 @@ sl_status_t sl_bt_controller_init(void)
   sl_btctrl_configure_max_queued_adv_reports(SL_BT_CONFIG_MAX_QUEUED_ADV_REPORTS);
 #endif // SL_CATALOG_BLUETOOTH_FEATURE_SCANNER_PRESENT
 
-#if defined(SL_CATALOG_BLUETOOTH_FEATURE_HCI_DEBUG_PRESENT)
-  hci_debugEnable();
-#endif // SL_CATALOG_BLUETOOTH_FEATURE_HCI_DEBUG_PRESENT
-
-#if defined(SL_CATALOG_BLUETOOTH_FEATURE_HCI_TEST_COMMANDS_PRESENT)
-  hci_enableVendorSpecificDebugging();
-#endif // SL_CATALOG_BLUETOOTH_FEATURE_HCI_TEST_COMMANDS_PRESENT
-
-#if defined(SL_CATALOG_BLUETOOTH_FEATURE_HCI_TEST_COMMANDS_PRESENT) && (SL_RAIL_LIB_MULTIPROTOCOL_SUPPORT == 1)
-  test_protocol_init();
-#endif // SL_CATALOG_BLUETOOTH_FEATURE_HCI_TEST_COMMANDS_PRESENT && SL_RAIL_LIB_MULTIPROTOCOL_SUPPORT == 1
-
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_CIS_PRESENT)
   sl_btctrl_init_cis();
 #endif // SL_CATALOG_BLUETOOTH_FEATURE_CIS_PRESENT
@@ -379,15 +386,23 @@ sl_status_t sl_bt_controller_init(void)
   return status;
 }
 
-sl_status_t sl_bt_ll_deinit();
-
-void sl_bt_controller_deinit(void)
+sl_status_t sl_btctrl_init(void)
 {
-#if defined(SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT)
+  struct sl_btctrl_config config;
+
+  sl_btctrl_init_config(&config);
+  config.buffer_memory = SL_BT_CONTROLLER_BUFFER_MEMORY;
+
+  return sl_btctrl_init_internal(&config);
+}
+
+sl_status_t sl_btctrl_deinit_ll();
+
+void sl_btctrl_deinit(void)
+{
   if (sl_btctrl_is_initialized() == false) {
     return;
   }
-#endif // SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT
 
 #if defined(SL_CATALOG_BLUETOOTH_FEATURE_CONNECTION_ANALYZER_PRESENT)
   sl_btctrl_deinit_sniff();
@@ -426,9 +441,6 @@ void sl_bt_controller_deinit(void)
   sl_btctrl_allocate_conn_subrate_memory(0);
 #endif
 
-  sl_bt_ll_deinit();
-
-#if defined(SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT)
+  sl_btctrl_deinit_ll();
   sli_btctrl_deinit_mem();
-#endif // SL_CATALOG_BLUETOOTH_CONTROLLER_ONLY_PRESENT
 }
